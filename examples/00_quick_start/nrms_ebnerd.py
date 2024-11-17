@@ -7,6 +7,7 @@ import polars as pl
 import numpy as np
 import gc
 import os
+import sys
 
 from ebrec.utils._constants import (
     DEFAULT_HISTORY_ARTICLE_ID_COL,
@@ -42,6 +43,8 @@ from ebrec.utils._python import write_submission_file, rank_predictions_by_score
 from ebrec.models.newsrec.dataloader import NRMSDataLoader, NRMSDataLoaderPretransform
 from ebrec.models.newsrec.model_config import hparams_nrms
 from ebrec.models.newsrec import NRMSModel
+
+sys.path.append('$BLACKHOLE/DeepLearning/02456_news_project/src')
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 gpus = tf.config.experimental.list_physical_devices("GPU")
