@@ -11,6 +11,7 @@ import sys
 
 path = os.path.expandvars('$BLACKHOLE')
 sys.path.append(path+'/DeepLearning/02456_news_project/src')
+print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
 from ebrec.utils._constants import (
     DEFAULT_HISTORY_ARTICLE_ID_COL,
