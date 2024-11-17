@@ -9,6 +9,9 @@ import gc
 import os
 import sys
 
+path = os.path.expandvars('$BLACKHOLE')
+sys.path.append(path+'/DeepLearning/02456_news_project/src')
+
 from ebrec.utils._constants import (
     DEFAULT_HISTORY_ARTICLE_ID_COL,
     DEFAULT_IS_BEYOND_ACCURACY_COL,
@@ -43,8 +46,6 @@ from ebrec.utils._python import write_submission_file, rank_predictions_by_score
 from ebrec.models.newsrec.dataloader import NRMSDataLoader, NRMSDataLoaderPretransform
 from ebrec.models.newsrec.model_config import hparams_nrms
 from ebrec.models.newsrec import NRMSModel
-
-sys.path.append('$BLACKHOLE/DeepLearning/02456_news_project/src')
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 gpus = tf.config.experimental.list_physical_devices("GPU")
@@ -83,7 +84,7 @@ def ebnerd_from_path(path: Path, history_size: int = 30) -> pl.DataFrame:
     return df_behaviors
 
 
-PATH = Path("~/ebnerd_data").expanduser()
+PATH = Path(path+"/DeepLearning/ebnerd_data").expanduser()
 DUMP_DIR = Path("ebnerd_predictions")
 DUMP_DIR.mkdir(exist_ok=True, parents=True)
 SEED = np.random.randint(0, 1_000)
