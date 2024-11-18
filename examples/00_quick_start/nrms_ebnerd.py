@@ -12,6 +12,11 @@ import sys
 path = os.path.expandvars('$BLACKHOLE')
 sys.path.append(path+'/DeepLearning/02456_news_project/src')
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
+# print gpu
+
+physical_devices = tf.config.list_physical_devices('GPU')
+if physical_devices:
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 from ebrec.utils._constants import (
     DEFAULT_HISTORY_ARTICLE_ID_COL,
@@ -184,11 +189,11 @@ val_dataloader = NRMSDataLoaderPretransform(
 )
 
 # CALLBACKS
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
-early_stopping = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2)
-modelcheckpoint = tf.keras.callbacks.ModelCheckpoint(
-    filepath=MODEL_WEIGHTS, save_best_only=True, save_weights_only=True, verbose=1
-)
+#tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
+#early_stopping = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2)
+#modelcheckpoint = tf.keras.callbacks.ModelCheckpoint(
+#    filepath=MODEL_WEIGHTS, save_best_only=True, save_weights_only=True, verbose=1
+#)
 
 model = NRMSModel(
     hparams=hparams_nrms,
@@ -199,7 +204,7 @@ hist = model.model.fit(
     train_dataloader,
     validation_data=val_dataloader,
     epochs=EPOCHS,
-    callbacks=[tensorboard_callback, early_stopping],
+   # callbacks=[tensorboard_callback, early_stopping],
 )
 del (
     transformer_tokenizer,
