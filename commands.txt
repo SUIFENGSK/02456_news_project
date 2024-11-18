@@ -1,0 +1,5 @@
+a100sh
+module load python3/3.10.12
+source .venv/bin/activate
+module load cuda/12.2
+export XLA_FLAGS=--xla_gpu_cuda_data_dir=/appl/cuda/12.2.0/nvvm/libdevice
