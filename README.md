@@ -28,8 +28,14 @@ pip install .
 
 We have experienced issues installing *tensorflow* for M1 Macbooks (```sys_platform == 'darwin'```) when using conda. To avoid this, we suggest to use venv if running on macbooks.
 ```
-python3 -m venv venv
-source  venv/bin/activate
+python3 -m .venv .venv
+source  .venv/bin/activate
+```
+
+Installing ```.venv``` in project folder:
+```
+conda create -p .venv python==3.11.8
+conda activate ./.venv
 ```
 
 ## Running GPU
@@ -56,4 +62,61 @@ We have created a [notebook](https://github.com/ebanalyse/ebnerd-benchmark/blob/
 
 ## Data manipulation and enrichment
 In the [dataset_ebnerd](https://github.com/ebanalyse/ebnerd-benchmark/blob/main/examples/00_quick_start/dataset_ebnerd.ipynb) demo, we show how one can join histories and create binary labels.
+
+# Reproduce EB-NeRD Experiments
+
+Activate your enviroment:
+```
+conda activate <environment_name>
+```
+
+### [NRMSModel](https://github.com/ebanalyse/ebnerd-benchmark/blob/main/src/ebrec/models/newsrec/nrms.py) 
+
+```
+python examples/reproducibility_scripts/ebnerd_nrms.py
+  --datasplit ebnerd_small \
+  --epochs 5 \
+  --bs_train 32 \
+  --bs_test 32 \
+  --history_size 20 \
+  --npratio 4 \
+  --transformer_model_name FacebookAI/xlm-roberta-large \
+  --max_title_length 30 \
+  --head_num 20 \
+  --head_dim 20 \
+  --attention_hidden_dim 200 \
+  --learning_rate 1e-4 \
+  --dropout 0.20
+```
+
+Tensorboards:
+```
+tensorboard --logdir=ebnerd_predictions/runs
+```
+
+### [NRMSDocVec](https://github.com/ebanalyse/ebnerd-benchmark/blob/main/src/ebrec/models/newsrec/nrms_docvec.py) 
+
+```
+python examples/reproducibility_scripts/ebnerd_nrms_docvec.py \
+  --datasplit ebnerd_small \
+  --epochs 5 \
+  --bs_train 32 \
+  --history_size 20 \
+  --npratio 4 \
+  --document_embeddings Ekstra_Bladet_contrastive_vector/contrastive_vector.parquet \
+  --head_num 16 \
+  --head_dim 16 \
+  --attention_hidden_dim 200 \
+  --newsencoder_units_per_layer 512 512 512 \
+  --learning_rate 1e-4 \
+  --dropout 0.2 \
+  --newsencoder_l2_regularization 1e-4
+```
+
+Tensorboards:
+```
+tensorboard --logdir=ebnerd_predictions/runs
+```
+
+
 
