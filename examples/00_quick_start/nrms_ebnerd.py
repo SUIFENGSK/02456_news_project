@@ -12,8 +12,8 @@ import sys
 path = os.path.expandvars('$BLACKHOLE')
 sys.path.append(path+'/DeepLearning/02456_news_project/src')
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-# print gpu
-
+# print which gpu is used
+# List all physical GPUs
 physical_devices = tf.config.list_physical_devices('GPU')
 if physical_devices:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
