@@ -1,5 +1,10 @@
 from pathlib import Path
 import polars as pl
+import utils.constants as cs
+
+def _convert_to_arr(df):
+    return df.to_pandas().to_dict(orient="records")
+
 
 class NewsDataset:
     def __init__(self, dataset_path: Path):
@@ -10,7 +15,6 @@ class NewsDataset:
         self.df_behaviors_validation = self._load_behaviors_validation()
         self.df_history_validation = self._load_history_validation()
         self.df_articles = self._load_articles()
-
 
 
     def _load_behaviors_train(self):
@@ -49,3 +53,26 @@ class NewsDataset:
         print("\nArticles DataFrame:")
         print(self.df_articles.shape)
         print(self.df_articles.head())
+
+    def extract_history_train_data(self, columns):
+        return _convert_to_arr(self.df_history_train.select(columns))
+
+    def extract_behaviors_train_data(self, columns):
+        return _convert_to_arr(self.df_behaviors_train.select(columns))
+
+    def extract_history_validation_data(self, columns):
+        return _convert_to_arr(self.df_history_validation.select(columns))
+
+    def extract_behaviors_validation_data(self, columns):
+        return _convert_to_arr(self.df_behaviors_validation.select(columns))
+
+    def extract_articles_data(self, columns):
+        return _convert_to_arr(self.df_articles.select(columns))
+
+    def get_article_info_by_id(self, article_id):
+        # Filter the articles DataFrame for the given article ID
+        article_info = self.df_articles.filter(pl.col(cs.DEFAULT_ARTICLE_ID_COL) == int(article_id))
+
+        # Convert the result to a dictionary format (or handle it as needed)
+        return _convert_to_arr(article_info)
+
