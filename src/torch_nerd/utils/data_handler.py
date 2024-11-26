@@ -9,8 +9,19 @@ def _convert_to_arr(df):
     return df.to_pandas().to_dict(orient="records")
 
 
+def extract_cols(df, columns):
+    cols = df.select(columns)
+    return cols, _convert_to_arr(cols)
+
+
+def sample_data(df, n_samples, seed=None):
+    sampled_df = df.sample(n_samples, seed=seed)
+    return sampled_df, _convert_to_arr(sampled_df)
+
+
 class NewsDataset:
     def __init__(self, dataset_path: Path):
+        self.df = None
         self.dataset_path = dataset_path
         self.df_behaviors_train = self._load_behaviors_train()
         self.df_history_train = self._load_history_train()
@@ -68,17 +79,9 @@ class NewsDataset:
         print(self.df_articles.shape)
         print(self.df_articles.head())
 
-    def extract_cols(self, df, columns):
-        cols = df.select(columns)
-        return cols, _convert_to_arr(cols)
-
     def get_article_info_by_id(self, article_id):
         # Filter the articles DataFrame for the given article ID
         article_info = self.df_articles.filter(pl.col(cs.DEFAULT_ARTICLE_ID_COL) == int(article_id))
 
         # Convert the result to a dictionary format (or handle it as needed)
         return article_info, _convert_to_arr(article_info)
-
-    def sample_data(self, df, n_samples, seed=None):
-        sampled_df = df.sample(n_samples, seed=seed)
-        return sampled_df, _convert_to_arr(sampled_df)

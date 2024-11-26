@@ -41,20 +41,30 @@ class NewsEncoder(nn.Module):
         self.word2vec_embedding = nn.Embedding.from_pretrained(
             torch.FloatTensor(word2vec_embedding), freeze=False
         )
+        # Self-Attention Layer
+        self.self_attention = SelfAttention(hparams.head_num, hparams.head_dim)
+        # Attention Aggregation Layer
+        self.attention_layer = AttentionLayer2(hparams.attention_hidden_dim)
 
     def forward(self, candidate_titles):
-        # TODO: 
-        return candidate_titles
+
+        embedded_titles = self.word2vec_embedding(candidate_titles)
+        attention_output = self.self_attention(embedded_titles, embedded_titles, embedded_titles)
+        news_representation = self.attention_layer(attention_output)
+
+        return news_representation
 
 
 class UserEncoder(nn.Module):
     def __init__(self, hparams, seed=None):
         super().__init__()
         self.hparams = hparams
+        self.attention_layer = AttentionLayer2(hparams.attention_hidden_dim)
 
     def forward(self, clicked_titles):
-        # TODO:
-        return clicked_titles
+        user_representation = self.attention_layer(clicked_titles)
+        return user_representation
+
 
 class ClickPredictor(nn.Module):
     def __init__(self):
