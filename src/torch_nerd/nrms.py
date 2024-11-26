@@ -25,6 +25,7 @@ class SelfAttention(nn.Module):
         self.value_layer = nn.Linear(head_dim, head_num * head_dim)
 
     def forward(self, inputs):
+        print(f"Inputs structure: {type(inputs)}, {inputs}")
         queries, keys, values = inputs
         queries = self.query_layer(queries)
         keys = self.key_layer(keys)
@@ -37,7 +38,7 @@ class SelfAttention(nn.Module):
 
 
 class NRMSModel(nn.Module):
-    def __init__(self, hparams, word2vec_embedding):
+    def __init__(self, hparams, word2vec_embedding, seed=None):
         super().__init__()
         self.hparams = hparams
         self.word2vec_embedding = nn.Embedding.from_pretrained(
@@ -66,6 +67,7 @@ class NRMSModel(nn.Module):
         )
 
     def forward(self, clicked_titles, candidate_titles):
+        print(f"clicked_titles shape: {clicked_titles.shape}, candidate_titles shape: {candidate_titles.shape}")
         user_rep = self.user_encoder(clicked_titles)
         news_rep = self.news_encoder(candidate_titles)
         scores = torch.matmul(news_rep, user_rep.unsqueeze(-1)).squeeze(-1)

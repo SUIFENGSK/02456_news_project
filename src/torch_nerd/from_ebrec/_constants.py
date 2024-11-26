@@ -1,4 +1,3 @@
-# From the original project
 # BEHAVIORS
 DEFAULT_IMPRESSION_TIMESTAMP_COL = "impression_time"
 DEFAULT_IS_BEYOND_ACCURACY_COL = "is_beyond_accuracy"
