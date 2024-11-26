@@ -24,9 +24,7 @@ class SelfAttention(nn.Module):
         self.key_layer = nn.Linear(head_dim, head_num * head_dim)
         self.value_layer = nn.Linear(head_dim, head_num * head_dim)
 
-    def forward(self, inputs):
-        print(f"Inputs structure: {type(inputs)}, {inputs}")
-        queries, keys, values = inputs
+    def forward(self, queries, keys, values):
         queries = self.query_layer(queries)
         keys = self.key_layer(keys)
         values = self.value_layer(values)
@@ -35,7 +33,35 @@ class SelfAttention(nn.Module):
         attention_weights = F.softmax(attention_scores, dim=-1)
         attention_output = torch.matmul(attention_weights, values)
         return attention_output
+    
+class NewsEncoder(nn.Module):
+    def __init__(self, hparams, word2vec_embedding, seed=None):
+        super().__init__()
+        self.hparams = hparams
+        self.word2vec_embedding = nn.Embedding.from_pretrained(
+            torch.FloatTensor(word2vec_embedding), freeze=False
+        )
 
+    def forward(self, candidate_titles):
+        # TODO: 
+        return candidate_titles
+
+
+class UserEncoder(nn.Module):
+    def __init__(self, hparams, seed=None):
+        super().__init__()
+        self.hparams = hparams
+
+    def forward(self, clicked_titles):
+        # TODO:
+        return clicked_titles
+
+class ClickPredictor(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, news_representation, user_representation):
+        return torch.matmul(news_representation, user_representation)
 
 class NRMSModel(nn.Module):
     def __init__(self, hparams, word2vec_embedding, seed=None):
@@ -44,31 +70,16 @@ class NRMSModel(nn.Module):
         self.word2vec_embedding = nn.Embedding.from_pretrained(
             torch.FloatTensor(word2vec_embedding), freeze=False
         )
-        self.dropout = nn.Dropout(hparams.dropout)
 
-        # Build encoders
-        self.news_encoder = self._build_news_encoder()
-        self.user_encoder = self._build_user_encoder()
+        self.news_encoder = NewsEncoder(hparams, word2vec_embedding)
+        self.user_encoder = UserEncoder(hparams)
+        self.click_predictor = ClickPredictor()
 
-    def _build_news_encoder(self):
-        return nn.Sequential(
-            self.word2vec_embedding,
-            self.dropout,
-            SelfAttention(self.hparams.head_num, self.hparams.head_dim),
-            self.dropout,
-            AttentionLayer2(self.hparams.attention_hidden_dim),
-        )
-
-    def _build_user_encoder(self):
-        return nn.Sequential(
-            nn.Linear(self.hparams.title_size, self.hparams.attention_hidden_dim),
-            SelfAttention(self.hparams.head_num, self.hparams.head_dim),
-            AttentionLayer2(self.hparams.attention_hidden_dim),
-        )
 
     def forward(self, clicked_titles, candidate_titles):
-        print(f"clicked_titles shape: {clicked_titles.shape}, candidate_titles shape: {candidate_titles.shape}")
-        user_rep = self.user_encoder(clicked_titles)
-        news_rep = self.news_encoder(candidate_titles)
-        scores = torch.matmul(news_rep, user_rep.unsqueeze(-1)).squeeze(-1)
-        return F.softmax(scores, dim=-1)
+        news_representation = self.news_encoder.forward(candidate_titles) # r in the paper
+        user_representation = self.user_encoder.forward(clicked_titles)   # u in the paper
+        click_probability = self.click_predictor.forward(news_representation, user_representation) # y_hat in the paper
+        return F.softmax(click_probability, dim=-1) # p_i in the paper
+
+
