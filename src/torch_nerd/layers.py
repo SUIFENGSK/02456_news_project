@@ -35,7 +35,7 @@ class AttLayer2(nn.Module):
         else:
             attention = attention.exp()
 
-        attention_weight = attention / (attention.sum(dim=1, keepdim=True) + 1e-8)
+        attention_weight = attention / (attention.sum(dim=0, keepdim=True) + 1e-8)
         attention_weight = attention_weight.unsqueeze(-1)
         weighted_input = inputs * attention_weight
         return weighted_input.sum(dim=1)
@@ -66,13 +66,14 @@ class SelfAttention(nn.Module):
         nn.init.xavier_uniform_(self.WV)
 
     def forward(self, Q, K, V, Q_len=None, V_len=None):
+        # TODO fix this guy
+
         # Initialize weights if they are None
         if self.WQ is None or self.WK is None or self.WV is None:
             input_dim_q = Q.size(-1)
             input_dim_k = K.size(-1)
             input_dim_v = V.size(-1)
             self.build(input_dim_q, input_dim_k, input_dim_v)
-
         batch_size, seq_len, _ = Q.shape
         Q_proj = Q @ self.WQ
         K_proj = K @ self.WK

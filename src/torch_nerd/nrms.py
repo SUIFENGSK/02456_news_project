@@ -14,7 +14,7 @@ class NewsEncoder(nn.Module):
             hparams.head_num, hparams.head_dim, seed=seed
         )
         self.dense_layers = nn.Sequential(
-            nn.Linear(hparams.head_dim * hparams.head_num, 400),
+            nn.Linear(12000, 400), # remove hardcoded value
             nn.ReLU(),
             nn.BatchNorm1d(400),
             nn.Dropout(hparams.dropout),
@@ -34,7 +34,9 @@ class NewsEncoder(nn.Module):
         embedded_sequences = self.embedding(sequences_input_title)
         y = self.dropout(embedded_sequences)
         y = self.self_attention(y, y, y)
+        print("Shape after _a self-attention:", y.shape)
         y = y.view(-1, y.size(2) * y.size(1))  # Flatten for dense layers
+        print("Shape after self-attention:", y.shape)
         y = self.dense_layers(y)
         return self.att_layer(y)
 
