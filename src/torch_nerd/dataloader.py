@@ -77,15 +77,14 @@ class NRMSDataLoader(NewsrecDataLoader):
             drop_nulls=False,
         )
 
-    def __getitem__(self, idx):
-        batch_X = self.X[idx * self.batch_size: (idx + 1) * self.batch_size].pipe(
-            self.transform
-        )
-        batch_y = self.y[idx * self.batch_size: (idx + 1) * self.batch_size]
+    def __getitem__(self, idx): # Returns a tuple of input and output tensors. Input is a tuple of previous articles and current articles, output is the click label.
+        batch_X = self.X[idx * self.batch_size: (idx + 1) * self.batch_size].pipe(self.transform) # Get the batch of data
+        batch_y = self.y[idx * self.batch_size: (idx + 1) * self.batch_size] # Get the batch of labels
         
         if self.eval_mode:
-            repeats = torch.tensor(batch_X["n_samples"].to_list(), dtype=torch.long)
-            batch_y = torch.tensor(batch_y.explode().to_list(), dtype=torch.float32).reshape(-1, 1)
+            # If in evaluation mode, we need to repeat the previous articles for each current article
+            repeats = torch.tensor(batch_X["n_samples"].to_list(), dtype=torch.long) 
+            batch_y = torch.tensor(batch_y.explode().to_list(), dtype=torch.float32).reshape(-1, 1) 
             his_input_title = repeat_by_list_values_from_matrix(
                 batch_X[self.history_column].to_list(),
                 matrix=self.lookup_article_matrix,
@@ -95,15 +94,15 @@ class NRMSDataLoader(NewsrecDataLoader):
                 batch_X[self.inview_col].explode().to_list()
             ]
         else:
-            batch_y = torch.tensor(batch_y.to_list(), dtype=torch.float32)
-            his_input_title = self.lookup_article_matrix[
+            batch_y = torch.tensor(batch_y.to_list(), dtype=torch.float32) # Convert the labels to a tensor of floats
+            his_input_title = self.lookup_article_matrix[    # Get the previous articles 
                 batch_X[self.history_column].to_list()
             ]
-            pred_input_title = self.lookup_article_matrix[
+            pred_input_title = self.lookup_article_matrix[   # Get the current articles
                 batch_X[self.inview_col].to_list()
             ]
-            pred_input_title = np.squeeze(pred_input_title, axis=2)
+            pred_input_title = np.squeeze(pred_input_title, axis=2) 
 
         his_input_title = np.squeeze(his_input_title, axis=2)
-        return (torch.tensor(his_input_title, dtype=torch.float32),
+        return (torch.tensor(his_input_title, dtype=torch.float32), 
                 torch.tensor(pred_input_title, dtype=torch.float32)), batch_y
