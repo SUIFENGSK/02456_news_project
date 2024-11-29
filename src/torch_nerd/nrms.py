@@ -121,9 +121,7 @@ class ClickPredictor(nn.Module):
 class NRMSModel(nn.Module):
     def __init__(self, hparams, word2vec_embedding, seed=None, debug = False):
         super().__init__()        
-        tensor_word2vec_embedding = nn.Embedding.from_pretrained(
-            torch.FloatTensor(word2vec_embedding), freeze=False
-        )
+        tensor_word2vec_embedding = nn.Embedding.from_pretrained(torch.FloatTensor(word2vec_embedding), freeze=False)
 
         self.news_encoder = NewsEncoder(hparams, tensor_word2vec_embedding, seed, debug)
         self.user_encoder = UserEncoder(hparams, self.news_encoder, seed, debug)
@@ -142,6 +140,7 @@ class NRMSModel(nn.Module):
             print("Model: Shape of user_representation:", user_representation.shape, ". Should be (batch_size, head_num * head_dim)")
             print("Model: Shape of news_representations:", news_representations.shape, ". Should be (batch_size, candidate_size, head_num * head_dim)")
         click_probability = self.click_predictor(news_representations, user_representation) # y_hat in the paper
-        return F.softmax(click_probability, dim=-1) # p_i in the paper
+        p_i = F.softmax(click_probability, dim=-1)
+        return p_i
 
 

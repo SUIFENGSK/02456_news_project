@@ -81,8 +81,7 @@ class NRMSDataLoader(NewsrecDataLoader):
         batch_X = self.X[idx * self.batch_size: (idx + 1) * self.batch_size].pipe(self.transform) # Get the batch of data
         batch_y = self.y[idx * self.batch_size: (idx + 1) * self.batch_size] # Get the batch of labels
         
-        if self.eval_mode:
-            # If in evaluation mode, we need to repeat the previous articles for each current article
+        if self.eval_mode: # TODO DOES NOT WORK
             repeats = torch.tensor(batch_X["n_samples"].to_list(), dtype=torch.long) 
             batch_y = torch.tensor(batch_y.explode().to_list(), dtype=torch.float32).reshape(-1, 1) 
             his_input_title = repeat_by_list_values_from_matrix(
