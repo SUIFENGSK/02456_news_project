@@ -12,9 +12,7 @@ class NewsEncoder(nn.Module):
         super(NewsEncoder, self).__init__()
         self.embedding = word2vec_embedding
         self.dropout = nn.Dropout(hparams.dropout)
-        self.self_attention = SelfAttention(
-            hparams.head_num, hparams.head_dim, seed=seed
-        )
+        self.self_attention = SelfAttention(hparams.head_num, hparams.head_dim, seed=seed)
         self.dense_layers = nn.Sequential(
             nn.Linear(hparams.head_num *  hparams.head_dim, 400), 
             nn.ReLU(),
@@ -24,9 +22,9 @@ class NewsEncoder(nn.Module):
             nn.ReLU(),
             nn.LayerNorm(400),
             nn.Dropout(hparams.dropout),
-            nn.Linear(400, 400),
+            nn.Linear(400, hparams.head_num *  hparams.head_dim),
             nn.ReLU(),
-            nn.LayerNorm(400),
+            nn.LayerNorm(hparams.head_num *  hparams.head_dim),
             nn.Dropout(hparams.dropout),
         )
         self.att_layer = AdditiveAttention(hparams.attention_hidden_dim, seed=seed)
@@ -62,11 +60,11 @@ class NewsEncoder(nn.Module):
         y = self.dense_layers(y)
 
         if self.debug:
-            print("NE6: Shape after dense layers:", y.shape, ". Should be (batch_size, title_size, 400)")
+            print("NE6: Shape after dense layers:", y.shape, ". Should be (batch_size, title_size, head_num * head_dim)")
         y = self.att_layer(y)
 
         if self.debug:
-            print("NE7: Shape after att layer:", y.shape, ". Should be (batch_size, attention_hidden_dim)")
+            print("NE7: Shape after att layer:", y.shape, ". Should be (batch_size, head_num * head_dim)")
         
         # Re add the history size dimension
         if history_size_saved:
@@ -77,9 +75,7 @@ class UserEncoder(nn.Module):
     def __init__(self, hparams, title_encoder, seed, debug = False):
         super(UserEncoder, self).__init__()
         self.title_encoder = title_encoder
-        self.self_attention = SelfAttention(
-            hparams.head_num, hparams.head_dim, seed=seed
-        )
+        self.self_attention = SelfAttention(hparams.head_num, hparams.head_dim, seed=seed)
         self.att_layer = AdditiveAttention(hparams.attention_hidden_dim, seed=seed)
 
         self.debug = debug  
@@ -90,7 +86,7 @@ class UserEncoder(nn.Module):
         click_title_presents = self.title_encoder(his_input_title)
 
         if self.debug:
-            print("UE2: Shape after title encoder:", click_title_presents.shape, ". Should be (batch_size, history_size, attention_hidden_dim)")
+            print("UE2: Shape after title encoder:", click_title_presents.shape, ". Should be (batch_size, history_size, head_num * head_dim)")
         y = self.self_attention(click_title_presents, click_title_presents, click_title_presents)
         
         if self.debug:
@@ -108,13 +104,13 @@ class ClickPredictor(nn.Module):
 
     def forward(self, news_representation, user_representation):
         if self.debug:
-            print("CP1: Shape of news_representation:", news_representation.shape, ". Should be (candidate_size, batch_size, attention_hidden_dim)")
-            print("CP2: Shape of user_representation:", user_representation.shape, ". Should be (batch_size, attention_hidden_dim)")
+            print("CP1: Shape of news_representation:", news_representation.shape, ". Should be (candidate_size, batch_size, head_num * head_dim)")
+            print("CP2: Shape of user_representation:", user_representation.shape, ". Should be (batch_size, head_num * head_dim)")
 
-        # Reshape the news representation to (batch_size, candidate_size, attention_hidden_dim)
+        # Reshape the news representation to (batch_size, candidate_size, head_num * head_dim)
         news_representation = news_representation.permute(1, 0, 2)
         if self.debug:
-            print("CP3: Reshape of news_representation:", news_representation.shape, ". Should be (batch_size, candidate_size, attention_hidden_dim)")
+            print("CP3: Reshape of news_representation:", news_representation.shape, ". Should be (batch_size, candidate_size, head_num * head_dim)")
         # Compute the dot product between the news and user representations so that the output is (batch_size, candidate_size)
         prob = torch.bmm(news_representation, user_representation.unsqueeze(2)).squeeze(2)
         if self.debug:
@@ -138,13 +134,13 @@ class NRMSModel(nn.Module):
 
     def forward(self, pred_input_title, his_input_title):
         if self.debug:
-            print("Model: Shape of pred_input_title:", pred_input_title.shape)
-            print("Model: Shape of his_input_title:", his_input_title.shape)
+            print("Model: Shape of pred_input_title:", pred_input_title.shape, ". Should be (batch_size, candidate_size, title_size)")
+            print("Model: Shape of his_input_title:", his_input_title.shape, ". Should be (batch_size, history_size, title_size)")
         user_representation = self.user_encoder(his_input_title)  # u in the paper
-        news_representations = torch.stack([self.news_encoder(title) for title in pred_input_title], dim=1)
+        news_representations = torch.stack([self.news_encoder(title) for title in pred_input_title], dim=1) # r in the paper
         if self.debug:
-            print("Model: Shape of user_representation:", user_representation.shape)
-            print("Model: Shape of news_representations:", news_representations.shape)
+            print("Model: Shape of user_representation:", user_representation.shape, ". Should be (batch_size, head_num * head_dim)")
+            print("Model: Shape of news_representations:", news_representations.shape, ". Should be (batch_size, candidate_size, head_num * head_dim)")
         click_probability = self.click_predictor(news_representations, user_representation) # y_hat in the paper
         return F.softmax(click_probability, dim=-1) # p_i in the paper
 
