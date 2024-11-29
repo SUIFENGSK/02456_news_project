@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from layers import AttLayer2 as AdditiveAttention
 from layers import SelfAttention as SelfAttention
 
+
+
 class NewsEncoder(nn.Module):
     def __init__(self, hparams, word2vec_embedding, seed):
         super(NewsEncoder, self).__init__()
@@ -14,17 +16,17 @@ class NewsEncoder(nn.Module):
             hparams.head_num, hparams.head_dim, seed=seed
         )
         self.dense_layers = nn.Sequential(
-            nn.Linear(12000, 400), # TODO: remove hardcoded value
+            nn.Linear(hparams.head_num *  hparams.head_dim, 400), 
             nn.ReLU(),
-            nn.BatchNorm1d(400),
+            nn.LayerNorm(400),
             nn.Dropout(hparams.dropout),
             nn.Linear(400, 400),
             nn.ReLU(),
-            nn.BatchNorm1d(400),
+            nn.LayerNorm(400),
             nn.Dropout(hparams.dropout),
             nn.Linear(400, 400),
             nn.ReLU(),
-            nn.BatchNorm1d(400),
+            nn.LayerNorm(400),
             nn.Dropout(hparams.dropout),
         )
         self.att_layer = AdditiveAttention(hparams.attention_hidden_dim, seed=seed)
@@ -32,38 +34,43 @@ class NewsEncoder(nn.Module):
         self.debug = True
 
     def forward(self, sequences_input_title):
+        # Convert from (batch_size, history_size, title_size) to (batch_size, title_size)
+        history_size_saved = False
+        if sequences_input_title.dim() == 3:
+            history_size_saved = True
+            history_size = sequences_input_title.shape[1]
+            sequences_input_title = sequences_input_title[:, -1, :]
+
         if self.debug:
-            print("NE0: Shape of input:", sequences_input_title.shape, ". Should be (batch_size, history_size, title_size)")
+            print("NE0: Shape of input:", sequences_input_title.shape, ". Should be (batch_size, title_size)")
         sequences_input_title = sequences_input_title.long()
 
         if self.debug:
-            print("NE2: Shape after casting to long:", sequences_input_title.shape, ". Should be (batch_size, history_size, title_size)")
+            print("NE2: Shape after casting to long:", sequences_input_title.shape, ". Should be (batch_size, title_size)")
         embedded_sequences = self.embedding(sequences_input_title)
-        embedded_sequences = embedded_sequences.view(-1, embedded_sequences.size(2), embedded_sequences.size(3))
 
         if self.debug:
-            print("NE3: Shape after embedding:", embedded_sequences.shape, ". Should be (batch_size, history_size, embedding_dim)")
+            print("NE3: Shape after embedding:", embedded_sequences.shape, ". Should be (batch_size, title_size, embedding_dim)")
         y = self.dropout(embedded_sequences)
 
         if self.debug:
-            print("NE4: Shape after dropout:", y.shape)
+            print("NE4: Shape after dropout:", y.shape, ". Should be (batch_size, title_size, embedding_dim)")
         y = self.self_attention(y, y, y)
 
         if self.debug:
-            print("NE5: Shape after self attention:", y.shape)
-        y = y.view(-1, y.size(2) * y.size(1))  # Flatten for dense layers
-
-        if self.debug:
-            print("NE6: Shape after flattening:", y.shape)
+            print("NE5: Shape after self attention:", y.shape, ". Should be (batch_size, title_size, head_num * head_dim)")        
         y = self.dense_layers(y)
 
         if self.debug:
-            print("NE7: Shape after dense layers:", y.shape)
+            print("NE6: Shape after dense layers:", y.shape, ". Should be (batch_size, title_size, 400)")
         y = self.att_layer(y)
 
         if self.debug:
-            print("NE8: Shape after att layer:", y.shape)
-
+            print("NE7: Shape after att layer:", y.shape, ". Should be (batch_size, attention_hidden_dim)")
+        
+        # Re add the history size dimension
+        if history_size_saved:
+            y = y.unsqueeze(1).repeat(1, history_size, 1)
         return y
 
 class UserEncoder(nn.Module):
@@ -79,19 +86,19 @@ class UserEncoder(nn.Module):
 
     def forward(self, his_input_title):
         if self.debug:
-            print("UE1: Shape of input:", his_input_title.shape)
+            print("UE1: Shape of input:", his_input_title.shape, ". Should be (batch_size, history_size, title_size)")
         click_title_presents = self.title_encoder(his_input_title)
 
         if self.debug:
-            print("UE2: Shape after title encoder:", click_title_presents.shape)
+            print("UE2: Shape after title encoder:", click_title_presents.shape, ". Should be (batch_size, history_size, attention_hidden_dim)")
         y = self.self_attention(click_title_presents, click_title_presents, click_title_presents)
         
         if self.debug:
-            print("UE3: Shape after self attention ", y.shape)
+            print("UE3: Shape after self attention ", y.shape, ". Should be (batch_size, history_size, head_num * head_dim)")
         y = self.att_layer(y) 
         
         if self.debug:
-            print("UE4: Shape after att layer ", y.shape)
+            print("UE4: Shape after att layer ", y.shape, ". Should be (batch_size, head_num * head_dim)")
         return y
 
 class ClickPredictor(nn.Module):
