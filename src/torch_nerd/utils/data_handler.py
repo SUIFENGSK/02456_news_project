@@ -20,14 +20,12 @@ def sample_data(df, n_samples, seed=None):
 
 
 class NewsDataset:
-    def __init__(self, dataset_path: Path):
+    def __init__(self):
         self.df = None
-        self.dataset_path = dataset_path
-        self.df_behaviors_train = self._load_behaviors_train()
-        self.df_history_train = self._load_history_train()
-        self.df_behaviors_validation = self._load_behaviors_validation()
-        self.df_history_validation = self._load_history_validation()
-        self.df_articles = self._load_articles()
+        self.df_train = None
+        self.df_validation = None
+        self.df_test = None
+        self.df_articles = None
 
     def _setup_train_data(self):
         dt_split = pl.col(cs.DEFAULT_IMPRESSION_TIMESTAMP_COL).max() - datetime.timedelta(days=1)
@@ -37,51 +35,17 @@ class NewsDataset:
         dt_split = pl.col(cs.DEFAULT_IMPRESSION_TIMESTAMP_COL).max() - datetime.timedelta(days=1)
         self.df_validation = self.df.filter(pl.col(cs.DEFAULT_IMPRESSION_TIMESTAMP_COL) >= dt_split)
 
+    def setup_articles_data(self, dataset_path: Path):
+        self.df_articles = pl.read_parquet(dataset_path.joinpath("articles.parquet"))
+
+    def setup_test_data(self, dataset_path: Path, datasplit: str, history_size: int, columns: list[str], fraction: float, seed: int):
+        self.df_test = (beh.ebnerd_from_path(dataset_path.joinpath(datasplit, "validation"), history_size=history_size, padding=0,).select(columns).pipe(beh.create_binary_labels_column).sample(fraction=fraction)
+)
+
     def setup_df(self, dataset_path: Path, datasplit: str, history_size: int, columns: list[str], fraction: float, seed: int):
         self.df = (beh.ebnerd_from_path(dataset_path.joinpath(datasplit, "train"), history_size=history_size, padding=0,).select(columns).pipe(beh.sampling_strategy_wu2019, npratio=4, shuffle=True, with_replacement=True, seed=seed).pipe(beh.create_binary_labels_column).sample(fraction=fraction))
         self._setup_train_data()
         self._setup_validation_data()
 
-    def _load_behaviors_train(self):
-        return pl.read_parquet(self.dataset_path.joinpath("train/behaviors.parquet"))
 
-    def _load_history_train(self):
-        return pl.read_parquet(self.dataset_path.joinpath("train/history.parquet"))
-
-    def _load_behaviors_validation(self):
-        return pl.read_parquet(self.dataset_path.joinpath("validation/behaviors.parquet"))
-
-    def _load_history_validation(self):
-        return pl.read_parquet(self.dataset_path.joinpath("validation/history.parquet"))
-
-    def _load_articles(self):
-        return pl.read_parquet(self.dataset_path.joinpath("articles.parquet"))
-
-    def test_data_loading(self):
-        # Print basic info about the loaded dataframes
-        print("Train Behaviors DataFrame:")
-        print(self.df_behaviors_train.shape)
-        print(self.df_behaviors_train.head())
-
-        print("\nTrain History DataFrame:")
-        print(self.df_history_train.shape)
-        print(self.df_history_train.head())
-
-        print("\nValidation Behaviors DataFrame:")
-        print(self.df_behaviors_validation.shape)
-        print(self.df_behaviors_validation.head())
-
-        print("\nValidation History DataFrame:")
-        print(self.df_history_validation.shape)
-        print(self.df_history_validation.head())
-
-        print("\nArticles DataFrame:")
-        print(self.df_articles.shape)
-        print(self.df_articles.head())
-
-    def get_article_info_by_id(self, article_id):
-        # Filter the articles DataFrame for the given article ID
-        article_info = self.df_articles.filter(pl.col(cs.DEFAULT_ARTICLE_ID_COL) == int(article_id))
-
-        # Convert the result to a dictionary format (or handle it as needed)
-        return article_info, _convert_to_arr(article_info)
+    
