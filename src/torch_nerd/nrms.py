@@ -8,7 +8,7 @@ from layers import SelfAttention as SelfAttention
 
 
 class NewsEncoder(nn.Module):
-    def __init__(self, hparams, word2vec_embedding, seed):
+    def __init__(self, hparams, word2vec_embedding, seed, debug = False):
         super(NewsEncoder, self).__init__()
         self.embedding = word2vec_embedding
         self.dropout = nn.Dropout(hparams.dropout)
@@ -31,7 +31,7 @@ class NewsEncoder(nn.Module):
         )
         self.att_layer = AdditiveAttention(hparams.attention_hidden_dim, seed=seed)
 
-        self.debug = True
+        self.debug = debug
 
     def forward(self, sequences_input_title):
         # Convert from (batch_size, history_size, title_size) to (batch_size, title_size)
@@ -74,7 +74,7 @@ class NewsEncoder(nn.Module):
         return y
 
 class UserEncoder(nn.Module):
-    def __init__(self, hparams, title_encoder, seed):
+    def __init__(self, hparams, title_encoder, seed, debug = False):
         super(UserEncoder, self).__init__()
         self.title_encoder = title_encoder
         self.self_attention = SelfAttention(
@@ -82,7 +82,7 @@ class UserEncoder(nn.Module):
         )
         self.att_layer = AdditiveAttention(hparams.attention_hidden_dim, seed=seed)
 
-        self.debug = True
+        self.debug = debug  
 
     def forward(self, his_input_title):
         if self.debug:
@@ -102,24 +102,38 @@ class UserEncoder(nn.Module):
         return y
 
 class ClickPredictor(nn.Module):
-    def __init__(self):
+    def __init__(self, debug = False):
         super().__init__()
+        self.debug = debug
 
     def forward(self, news_representation, user_representation):
-        return torch.matmul(news_representation, user_representation.unsqueeze(-1)).squeeze(-1)
+        if self.debug:
+            print("CP1: Shape of news_representation:", news_representation.shape, ". Should be (candidate_size, batch_size, attention_hidden_dim)")
+            print("CP2: Shape of user_representation:", user_representation.shape, ". Should be (batch_size, attention_hidden_dim)")
+
+        # Reshape the news representation to (batch_size, candidate_size, attention_hidden_dim)
+        news_representation = news_representation.permute(1, 0, 2)
+        if self.debug:
+            print("CP3: Reshape of news_representation:", news_representation.shape, ". Should be (batch_size, candidate_size, attention_hidden_dim)")
+        # Compute the dot product between the news and user representations so that the output is (batch_size, candidate_size)
+        prob = torch.bmm(news_representation, user_representation.unsqueeze(2)).squeeze(2)
+        if self.debug:
+            print("CP3: Shape of prob:", prob.shape, ". Should be (batch_size, candidate_size)")
+        return prob
+        
 
 class NRMSModel(nn.Module):
-    def __init__(self, hparams, word2vec_embedding, seed=None):
+    def __init__(self, hparams, word2vec_embedding, seed=None, debug = False):
         super().__init__()        
         tensor_word2vec_embedding = nn.Embedding.from_pretrained(
             torch.FloatTensor(word2vec_embedding), freeze=False
         )
 
-        self.news_encoder = NewsEncoder(hparams, tensor_word2vec_embedding, seed)
-        self.user_encoder = UserEncoder(hparams, self.news_encoder, seed)
-        self.click_predictor = ClickPredictor()
+        self.news_encoder = NewsEncoder(hparams, tensor_word2vec_embedding, seed, debug)
+        self.user_encoder = UserEncoder(hparams, self.news_encoder, seed, debug)
+        self.click_predictor = ClickPredictor(debug)
 
-        self.debug = True
+        self.debug = debug
 
 
     def forward(self, pred_input_title, his_input_title):
