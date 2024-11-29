@@ -8,11 +8,11 @@ from layers import SelfAttention as SelfAttention
 
 
 class NewsEncoder(nn.Module):
-    def __init__(self, hparams, word2vec_embedding, seed, debug = False):
+    def __init__(self, hparams, word2vec_embedding, input_dimensions, seed, debug = False):
         super(NewsEncoder, self).__init__()
         self.embedding = word2vec_embedding
         self.dropout = nn.Dropout(hparams.dropout)
-        self.self_attention = SelfAttention(hparams.head_num, hparams.head_dim, seed=seed)
+        self.self_attention = SelfAttention(input_dimensions, hparams.head_num, hparams.head_dim, seed=seed)
         self.dense_layers = nn.Sequential(
             nn.Linear(hparams.head_num *  hparams.head_dim, 400), 
             nn.ReLU(),
@@ -27,7 +27,7 @@ class NewsEncoder(nn.Module):
             nn.LayerNorm(hparams.head_num *  hparams.head_dim),
             nn.Dropout(hparams.dropout),
         )
-        self.att_layer = AdditiveAttention(hparams.attention_hidden_dim, seed=seed)
+        self.att_layer = AdditiveAttention(hparams.head_num * hparams.head_dim, hparams.attention_hidden_dim, seed=seed)
 
         self.debug = debug
 
@@ -75,8 +75,8 @@ class UserEncoder(nn.Module):
     def __init__(self, hparams, title_encoder, seed, debug = False):
         super(UserEncoder, self).__init__()
         self.title_encoder = title_encoder
-        self.self_attention = SelfAttention(hparams.head_num, hparams.head_dim, seed=seed)
-        self.att_layer = AdditiveAttention(hparams.attention_hidden_dim, seed=seed)
+        self.self_attention = SelfAttention(hparams.head_num * hparams.head_dim, hparams.head_num, hparams.head_dim, seed=seed)
+        self.att_layer = AdditiveAttention(hparams.head_num * hparams.head_dim, hparams.attention_hidden_dim, seed=seed)
 
         self.debug = debug  
 
@@ -123,7 +123,7 @@ class NRMSModel(nn.Module):
         super().__init__()        
         tensor_word2vec_embedding = nn.Embedding.from_pretrained(torch.FloatTensor(word2vec_embedding), freeze=False)
 
-        self.news_encoder = NewsEncoder(hparams, tensor_word2vec_embedding, seed, debug)
+        self.news_encoder = NewsEncoder(hparams, tensor_word2vec_embedding, word2vec_embedding.shape[1], seed, debug)
         self.user_encoder = UserEncoder(hparams, self.news_encoder, seed, debug)
         self.click_predictor = ClickPredictor(debug)
 

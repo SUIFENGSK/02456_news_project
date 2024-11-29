@@ -44,13 +44,13 @@ class AttLayer2(nn.Module):
 class SelfAttention(nn.Module):
     """Multi-head self-attention implementation."""
 
-    def __init__(self, input_dim, multiheads, head_dim, seed=0):
+    def __init__(self, input_dim, head_nums, head_dim, seed=0):
         super(SelfAttention, self).__init__()
         torch.manual_seed(seed)
         self.input_dim = input_dim
-        self.multiheads = multiheads
+        self.head_nums = head_nums
         self.head_dim = head_dim
-        self.output_dim = multiheads * head_dim
+        self.output_dim = head_nums * head_dim
 
         # Define weights
         self.WQ = nn.Parameter(torch.empty(input_dim, self.output_dim))
@@ -77,13 +77,13 @@ class SelfAttention(nn.Module):
         V_proj = value @ self.WV
 
         # Reshape for multi-head attention
-        Q_proj = Q_proj.view(batch_size, seq_len, self.multiheads, self.head_dim).permute(0, 2, 1, 3)
-        K_proj = K_proj.view(batch_size, seq_len, self.multiheads, self.head_dim).permute(0, 2, 1, 3)
-        V_proj = V_proj.view(batch_size, seq_len, self.multiheads, self.head_dim).permute(0, 2, 1, 3)
+        Q_proj = Q_proj.view(batch_size, seq_len, self.head_nums, self.head_dim).permute(0, 2, 1, 3)
+        K_proj = K_proj.view(batch_size, seq_len, self.head_nums, self.head_dim).permute(0, 2, 1, 3)
+        V_proj = V_proj.view(batch_size, seq_len, self.head_nums, self.head_dim).permute(0, 2, 1, 3)
 
         # Compute attention scores
         scores = torch.matmul(Q_proj, K_proj.transpose(-2, -1)) / (self.head_dim ** 0.5)  # Scaled dot-product
-        
+
         attention_weights = F.softmax(scores, dim=-1)  # Normalize scores
         output = torch.matmul(attention_weights, V_proj)  # Shape: (batch_size, multiheads, seq_len, head_dim)
 
