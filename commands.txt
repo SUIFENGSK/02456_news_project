@@ -7,3 +7,4 @@ export XLA_FLAGS=--xla_gpu_cuda_data_dir=/appl/cuda/12.2.0
 find /appl/cuda/12.2.0/nvvm/libdevice -name "libdevice.10.bc"
 
 python3 02456_news_project/examples/00_quick_start/nrms_ebnerd.py
+python3 02456_news_project/src/torch_nerd/main.py
