@@ -14,6 +14,7 @@ class hparams_nrms:
     head_num: int = 20
     head_dim: int = 20
     attention_hidden_dim: int = 200
+    linear_hidden_dim: int = 80
     # MODEL OPTIMIZER:
     optimizer: str = "adam"
     loss: str = "cross_entropy_loss"

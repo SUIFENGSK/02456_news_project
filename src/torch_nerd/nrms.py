@@ -14,15 +14,15 @@ class NewsEncoder(nn.Module):
         self.dropout = nn.Dropout(hparams.dropout)
         self.self_attention = SelfAttention(input_dimensions, hparams.head_num, hparams.head_dim, seed=seed)
         self.dense_layers = nn.Sequential(
-            nn.Linear(hparams.head_num *  hparams.head_dim, 400), 
+            nn.Linear(hparams.head_num *  hparams.head_dim, hparams.linear_hidden_dim), 
             nn.ReLU(),
-            nn.LayerNorm(400),
+            nn.LayerNorm(hparams.linear_hidden_dim),
             nn.Dropout(hparams.dropout),
-            nn.Linear(400, 400),
+            nn.Linear(hparams.linear_hidden_dim, hparams.linear_hidden_dim),
             nn.ReLU(),
-            nn.LayerNorm(400),
+            nn.LayerNorm(hparams.linear_hidden_dim),
             nn.Dropout(hparams.dropout),
-            nn.Linear(400, hparams.head_num *  hparams.head_dim),
+            nn.Linear(hparams.linear_hidden_dim, hparams.head_num *  hparams.head_dim),
             nn.ReLU(),
             nn.LayerNorm(hparams.head_num *  hparams.head_dim),
             nn.Dropout(hparams.dropout),
