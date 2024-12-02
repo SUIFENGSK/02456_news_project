@@ -4,14 +4,19 @@ import torch.nn.functional as F
 
 from layers import AttLayer2 as AdditiveAttention
 from layers import SelfAttention as SelfAttention
-
+from layers import PositionEncoder as PositionEncoder
 
 
 class NewsEncoder(nn.Module):
-    def __init__(self, hparams, word2vec_embedding, input_dimensions, seed, debug = False):
+    def __init__(self, hparams, word2vec_embedding, input_dimensions, seed, use_positional_encoding = False, debug = False):
         super(NewsEncoder, self).__init__()
         self.embedding = word2vec_embedding
         self.dropout = nn.Dropout(hparams.dropout)
+        self.use_positional_encoding = use_positional_encoding
+        
+        if self.use_positional_encoding:
+            self.positional_encoder = PositionEncoder(input_dimensions, hparams.title_size, use_learned_positions=hparams.use_learned_positions)
+        
         self.self_attention = SelfAttention(input_dimensions, hparams.head_num, hparams.head_dim, seed=seed)
         self.dense_layers = nn.Sequential(
             nn.Linear(hparams.head_num *  hparams.head_dim, hparams.linear_hidden_dim), 
@@ -46,6 +51,9 @@ class NewsEncoder(nn.Module):
         if self.debug:
             print("NE2: Shape after casting to long:", sequences_input_title.shape, ". Should be (batch_size, title_size)")
         embedded_sequences = self.embedding(sequences_input_title)
+
+        if self.use_positional_encoding:
+            embedded_sequences = self.positional_encoder(embedded_sequences)
 
         if self.debug:
             print("NE3: Shape after embedding:", embedded_sequences.shape, ". Should be (batch_size, title_size, embedding_dim)")
@@ -123,7 +131,7 @@ class NRMSModel(nn.Module):
         super().__init__()        
         tensor_word2vec_embedding = nn.Embedding.from_pretrained(torch.FloatTensor(word2vec_embedding), freeze=False)
 
-        self.news_encoder = NewsEncoder(hparams, tensor_word2vec_embedding, word2vec_embedding.shape[1], seed, debug)
+        self.news_encoder = NewsEncoder(hparams, tensor_word2vec_embedding, word2vec_embedding.shape[1], seed, hparams.use_positional_encoding, debug)
         self.user_encoder = UserEncoder(hparams, self.news_encoder, seed, debug)
         self.click_predictor = ClickPredictor(debug)
 

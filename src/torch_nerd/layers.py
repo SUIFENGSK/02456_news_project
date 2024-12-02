@@ -122,3 +122,52 @@ class SelfAttention(nn.Module):
         output = output.permute(0, 2, 1, 3).contiguous().view(batch_size, seq_len, self.output_dim)
 
         return output
+    
+import math
+
+class PositionEncoder(nn.Module):
+    def __init__(self, embedding_dim, seq_len, use_learned_positions=True):
+        super(PositionEncoder, self).__init__()
+        self.embedding_dim = embedding_dim
+        self.seq_len = seq_len
+        
+        # Learned positional encoding
+        if use_learned_positions:
+            self.position_embeddings = nn.Embedding(seq_len, embedding_dim)
+        else:
+            # Sinusoidal positional encoding
+            self.register_buffer("position_encodings", self.sinusoidal_positional_encoding(seq_len, embedding_dim))
+
+    def forward(self, word_embeddings):
+        """
+        Args:
+            word_embeddings: Tensor of shape (batch_size, seq_len, embedding_dim)
+        Returns:
+            Tensor of shape (batch_size, seq_len, embedding_dim) with positional encodings added
+        """
+        batch_size, seq_len, embedding_dim = word_embeddings.size()
+        
+        # Ensure sequence length doesn't exceed defined maximum
+        assert seq_len <= self.seq_len, "Sequence length exceeds maximum"
+
+        if hasattr(self, "position_embeddings"):
+            # Learned positional encoding
+            positions = torch.arange(seq_len, device=word_embeddings.device).unsqueeze(0).expand(batch_size, seq_len)
+            pos_enc = self.position_embeddings(positions)  # Shape: (batch_size, seq_len, embedding_dim)
+        else:
+            # Sinusoidal positional encoding
+            pos_enc = self.position_encodings[:seq_len, :].unsqueeze(0).expand(batch_size, -1, -1)  # Shape: (batch_size, seq_len, embedding_dim)
+
+        return word_embeddings + pos_enc
+
+    @staticmethod
+    def sinusoidal_positional_encoding(seq_len, embedding_dim):
+        """
+        Compute sinusoidal positional encodings.
+        """
+        position = torch.arange(0, seq_len).unsqueeze(1)  # Shape: (seq_len, 1)
+        div_term = torch.exp(torch.arange(0, embedding_dim, 2) * -(math.log(10000.0) / embedding_dim))  # Shape: (embedding_dim / 2)
+        pe = torch.zeros(seq_len, embedding_dim)
+        pe[:, 0::2] = torch.sin(position * div_term)  # Apply sine to even indices
+        pe[:, 1::2] = torch.cos(position * div_term)  # Apply cosine to odd indices
+        return pe

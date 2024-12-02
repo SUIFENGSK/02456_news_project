@@ -15,6 +15,11 @@ class hparams_nrms:
     head_dim: int = 20
     attention_hidden_dim: int = 200
     linear_hidden_dim: int = 80
+
+    # POSITIONAL ENCODER
+    use_positional_encoding: bool = False
+    use_learned_positions: bool = False
+
     # MODEL OPTIMIZER:
     optimizer: str = "adam"
     loss: str = "cross_entropy_loss"
