@@ -75,7 +75,7 @@ class NewsEncoder(nn.Module):
         if self.debug:
             print("NE5: Shape after self attention:", y.shape,
                   ". Should be (batch_size, title_size, head_num * head_dim)")
-        y = self.dense_layers(y)
+        #y = self.dense_layers(y)
 
         if self.debug:
             print("NE6: Shape after dense layers:", y.shape,
