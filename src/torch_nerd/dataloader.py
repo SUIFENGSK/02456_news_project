@@ -95,10 +95,9 @@ class NRMSDataLoader(NewsrecDataLoader):
 
         # Extract the impression timestamps
         if DEFAULT_IMPRESSION_TIMESTAMP_COL in batch_x.columns:
-            timestamps = batch_x[DEFAULT_IMPRESSION_TIMESTAMP_COL].apply(
-            lambda x: x.timestamp() if isinstance(x, datetime) else float("nan")
-        ).to_list()
-            timestamps = torch.tensor(timestamps, dtype=torch.float32)  # Convert to tensor
+            #timestamps = batch_x[DEFAULT_IMPRESSION_TIMESTAMP_COL].apply(lambda x: x.timestamp() if isinstance(x, datetime) else float("nan")).to_list()
+            #timestamps = torch.tensor(timestamps, dtype=torch.float32)  # Convert to tensor
+            timestamps = None # TODO: current crashes on Andreas
         else:
             timestamps = None  # Handle the case where timestamps might not exist
 
