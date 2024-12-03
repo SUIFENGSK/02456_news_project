@@ -3,25 +3,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class AttLayer2(nn.Module):
-    """Soft alignment attention implementation."""
+    """Soft alignment attention implementation using nn.Linear."""
 
     def __init__(self, input_dim, attention_dim=200):
         super(AttLayer2, self).__init__()
 
-        # Input dimensionality of each time step
-        self.input_dim = input_dim
-        # Dimensionality of the attention layer
-        self.attention_dim = attention_dim
-
-        # Define the learnable parameters:
-        # W: Transformation matrix to project inputs into attention space
-        self.W = nn.Parameter(torch.empty(input_dim, attention_dim))
-        # b: Bias term for the attention computation
-        self.b = nn.Parameter(torch.zeros(attention_dim))
-        # q: Query vector to score each time step
-        self.q = nn.Parameter(torch.empty(attention_dim, 1))
+        # Linear transformation to project inputs into attention space
+        self.attention_projection = nn.Linear(input_dim, attention_dim)
+        # Query vector to score each time step
+        self.query_vector = nn.Linear(attention_dim, 1, bias=False)
 
     def forward(self, inputs):
         """
@@ -31,40 +22,34 @@ class AttLayer2(nn.Module):
         Returns:
             Tensor of shape (batch_size, input_dim) representing the context vector.
         """
-        # Project the inputs into the attention space:
-        # Apply a linear transformation followed by a non-linearity (tanh)
-        # inputs @ self.W: (batch_size, seq_len, attention_dim)
+        # Project the inputs into the attention space with a non-linearity (tanh)
         # Shape: (batch_size, seq_len, attention_dim)
-        attention = torch.tanh(inputs @ self.W + self.b)
+        attention = torch.tanh(self.attention_projection(inputs)) # b = tanh(W * h + v)
 
-        # Compute attention scores by projecting the transformed input onto the query vector (q)
-        # attention @ self.q: (batch_size, seq_len, 1)
-        attention = attention @ self.q  # Shape: (batch_size, seq_len, 1)
+        # Compute attention scores by projecting the transformed inputs onto the query vector
+        # Shape: (batch_size, seq_len, 1)
+        attention_scores = self.query_vector(attention) # a = q^T * tanh(b)
 
-        # Remove the last singleton dimension for further processing
-        attention = attention.squeeze(-1)  # Shape: (batch_size, seq_len)
+        # Squeeze the last singleton dimension to get scores for each time step
+        # Shape: (batch_size, seq_len)
+        attention_scores = attention_scores.squeeze(-1) 
 
         # Normalize the scores using softmax to obtain attention weights
-        # These weights sum to 1 across the sequence dimension
         # Shape: (batch_size, seq_len, 1)
-        attention_weights = F.softmax(attention, dim=1).unsqueeze(-1)
+        attention_weights = F.softmax(attention_scores, dim=1).unsqueeze(-1) # α = softmax(a)
 
-        # Compute the context vector as the weighted sum of the inputs:
-        # Multiply the attention weights with the inputs element-wise, then sum across the sequence dimension
+        # Compute the context vector as the weighted sum of the inputs
         # Shape: (batch_size, input_dim)
-        weighted_input = (inputs * attention_weights).sum(dim=1)
+        context_vector = (inputs * attention_weights).sum(dim=1) # r = sum(α * h)
 
-        return weighted_input
-
+        return context_vector
 
 class SelfAttention(nn.Module):
-    """Multi-head self-attention implementation."""
-
+    """Multi-head self-attention implementation using nn.Linear."""
+    
     def __init__(self, input_dim, head_nums, head_dim):
         super(SelfAttention, self).__init__()
 
-        # Input dimension of the embedding vectors
-        self.input_dim = input_dim
         # Number of attention heads (h in the paper)
         self.head_nums = head_nums
         # Dimension of each attention head (d_k in the paper)
@@ -72,10 +57,10 @@ class SelfAttention(nn.Module):
         # Total output dimension = head_nums * head_dim
         self.output_dim = head_nums * head_dim
 
-        # Learnable weights for Query (W_Q), Key (W_K), and Value (W_V)
-        self.WQ = nn.Parameter(torch.empty(input_dim, self.output_dim))
-        self.WK = nn.Parameter(torch.empty(input_dim, self.output_dim))
-        self.WV = nn.Parameter(torch.empty(input_dim, self.output_dim))
+        # Linear layers for projecting query, key, and value
+        self.query_proj = nn.Linear(input_dim, self.output_dim)
+        self.key_proj = nn.Linear(input_dim, self.output_dim)
+        self.value_proj = nn.Linear(input_dim, self.output_dim)
 
     def forward(self, query, key, value):
         """
@@ -87,10 +72,10 @@ class SelfAttention(nn.Module):
         # Extract the batch size and sequence length from the input shape
         batch_size, seq_len, _ = query.size()
 
-        # Project the inputs into the attention subspace using WQ, WK, and WV
-        Q_proj = query @ self.WQ  # (batch_size, seq_len, head_nums * head_dim)
-        K_proj = key @ self.WK    # (batch_size, seq_len, head_nums * head_dim)
-        V_proj = value @ self.WV  # (batch_size, seq_len, head_nums * head_dim)
+        # Project the inputs into the attention subspace
+        Q_proj = self.query_proj(query)  # (batch_size, seq_len, head_nums * head_dim)
+        K_proj = self.key_proj(key)      # (batch_size, seq_len, head_nums * head_dim)
+        V_proj = self.value_proj(value)  # (batch_size, seq_len, head_nums * head_dim)
 
         # Reshape for multi-head attention:
         # From (batch_size, seq_len, head_nums * head_dim) to (batch_size, head_nums, seq_len, head_dim)
@@ -121,6 +106,7 @@ class SelfAttention(nn.Module):
             batch_size, seq_len, self.output_dim)
 
         return output
+
 
 
 class PositionEncoder(nn.Module):

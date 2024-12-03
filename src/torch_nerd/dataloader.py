@@ -53,6 +53,7 @@ class NewsrecDataLoader(Dataset):
             pl.col(self.inview_col).list.len().alias("n_samples")
         )
         y = self.behaviors[self.labels_col]
+
         return X, y
 
     def set_kwargs(self, kwargs):
@@ -78,9 +79,11 @@ class NRMSDataLoader(NewsrecDataLoader):
         )
 
     def __getitem__(self, idx): # Returns a tuple of input and output tensors. Input is a tuple of previous articles and current articles, output is the click label.
-        batch_X = self.X[idx * self.batch_size: (idx + 1) * self.batch_size].pipe(self.transform) # Get the batch of data
-        batch_y = self.y[idx * self.batch_size: (idx + 1) * self.batch_size] # Get the batch of labels
+        #print(self.transform)
         
+        batch_X = self.X[idx * self.batch_size: (idx + 1) * self.batch_size].pipe(self.transform) # Get the batch of data
+        batch_y = self.y[idx * self.batch_size: (idx + 1) * self.batch_size]                        # Get the batch of labels
+
         if self.eval_mode: # TODO DOES NOT WORK
             repeats = torch.tensor(batch_X["n_samples"].to_list(), dtype=torch.long) 
             batch_y = torch.tensor(batch_y.explode().to_list(), dtype=torch.float32).reshape(-1, 1) 
@@ -103,5 +106,10 @@ class NRMSDataLoader(NewsrecDataLoader):
             pred_input_title = np.squeeze(pred_input_title, axis=2) 
 
         his_input_title = np.squeeze(his_input_title, axis=2)
+        #print(f"Batch {idx} with batch_size: {self.batch_size}")
+        #print(f"his_input_title: {his_input_title.shape} Value in first row: {his_input_title[0]}")
+        #print(f"pred_input_title: {pred_input_title.shape} Value in first row: {pred_input_title[0]}")
+        #print(f"batch_y: {batch_y.shape}, values: {batch_y}")
+
         return (torch.tensor(his_input_title, dtype=torch.float32), 
                 torch.tensor(pred_input_title, dtype=torch.float32)), batch_y
