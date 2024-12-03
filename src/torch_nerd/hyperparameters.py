@@ -21,9 +21,13 @@ class hparams_nrms:
     attention_hidden_dim: int = 200
     linear_hidden_dim: int = 80
 
+    # TIME EMBEDDING
+    use_time_embedding: bool = False
+    time_size: int = 100
+    time_embedding_dim: int = 100
+
     # POSITIONAL ENCODER
     use_positional_encoding: bool = False
-    use_learned_positions: bool = False
 
     # MODEL OPTIMIZER:
     optimizer: str = "adam"

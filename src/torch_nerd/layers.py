@@ -4,8 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class AttLayer2(nn.Module):
-    """Soft alignment attention implementation using nn.Linear."""
-
     def __init__(self, input_dim, attention_dim=200):
         super(AttLayer2, self).__init__()
 
@@ -44,9 +42,7 @@ class AttLayer2(nn.Module):
 
         return context_vector
 
-class SelfAttention(nn.Module):
-    """Multi-head self-attention implementation using nn.Linear."""
-    
+class SelfAttention(nn.Module):    
     def __init__(self, input_dim, head_nums, head_dim):
         super(SelfAttention, self).__init__()
 
