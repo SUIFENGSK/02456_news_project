@@ -10,6 +10,11 @@ class hparams_nrms:
     # INPUT DIMENTIONS:
     title_size: int = DEFAULT_TITLE_SIZE
     history_size: int = 20
+    batch_size: int = 32
+    candidate_size: int = 200
+    embedding_dim: int = 300
+
+
     # MODEL ARCHITECTURE
     head_num: int = 20
     head_dim: int = 20
