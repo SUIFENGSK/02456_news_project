@@ -16,7 +16,7 @@ class NewsEncoder(nn.Module):
 
         if self.use_positional_encoding:
             self.positional_encoder = PositionEncoder(
-                hparams.embedding_dim, hparams.title_size, use_learned_positions=hparams.use_learned_positions)
+                hparams.embedding_dim, hparams.title_size, hparams.dropout)
 
         self.self_attention = SelfAttention(
             hparams.embedding_dim, hparams.head_num, hparams.head_dim
