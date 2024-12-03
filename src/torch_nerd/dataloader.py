@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from torch.utils.data import Dataset
 import torch
 import numpy as np
@@ -13,6 +14,7 @@ from from_ebrec._constants import (
     DEFAULT_INVIEW_ARTICLES_COL,
     DEFAULT_LABELS_COL,
     DEFAULT_USER_COL,
+    DEFAULT_IMPRESSION_TIMESTAMP_COL
 )
 
 
@@ -77,19 +79,31 @@ class NRMSDataLoader(NewsrecDataLoader):
             drop_nulls=False,
         )
 
-    def __getitem__(self, idx): 
-        
-        batch_X = self.X[idx * self.batch_size: (idx + 1) * self.batch_size].pipe(self.transform) 
-        batch_y = self.y[idx * self.batch_size: (idx + 1) * self.batch_size]                     
+    def __getitem__(self, idx):
+        # Get the current batch of data
+        batch_x = self.X[idx * self.batch_size: (idx + 1) * self.batch_size].pipe(self.transform)
+        batch_y = self.y[idx * self.batch_size: (idx + 1) * self.batch_size]
 
-        
+        # Convert labels to tensors
         batch_y = torch.tensor(batch_y.to_list(), dtype=torch.float32)
-        his_input_title = self.lookup_article_matrix[batch_X[self.history_column].to_list()]
-        pred_input_title = self.lookup_article_matrix[batch_X[self.inview_col].to_list()]
-        pred_input_title = np.squeeze(pred_input_title, axis=2) 
 
+        # Prepare input features
+        his_input_title = self.lookup_article_matrix[batch_x[self.history_column].to_list()]
+        pred_input_title = self.lookup_article_matrix[batch_x[self.inview_col].to_list()]
+        pred_input_title = np.squeeze(pred_input_title, axis=2)
         his_input_title = np.squeeze(his_input_title, axis=2)
 
+        # Extract the impression timestamps
+        if DEFAULT_IMPRESSION_TIMESTAMP_COL in batch_x.columns:
+            timestamps = batch_x[DEFAULT_IMPRESSION_TIMESTAMP_COL].apply(
+            lambda x: x.timestamp() if isinstance(x, datetime) else float("nan")
+        ).to_list()
+            timestamps = torch.tensor(timestamps, dtype=torch.float32)  # Convert to tensor
+        else:
+            timestamps = None  # Handle the case where timestamps might not exist
 
-        return (torch.tensor(his_input_title, dtype=torch.float32), 
-                torch.tensor(pred_input_title, dtype=torch.float32)), batch_y
+        # Return inputs and labels, including timestamps
+        return (torch.tensor(his_input_title, dtype=torch.float32),
+                torch.tensor(pred_input_title, dtype=torch.float32),
+                timestamps), batch_y
+
