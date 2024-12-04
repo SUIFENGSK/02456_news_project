@@ -1,8 +1,15 @@
+getquota_zhome.sh
+
+
 a100sh
+sxm2sh
+nvidia-smi
+
+
 module load python3/3.10.14
 source .venv/bin/activate
 module load cuda/12.2
-export CUDA_VISIBLE_DEVICE=0
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 export XLA_FLAGS=--xla_gpu_cuda_data_dir=/appl/cuda/12.2.0
 find /appl/cuda/12.2.0/nvvm/libdevice -name "libdevice.10.bc"
 
