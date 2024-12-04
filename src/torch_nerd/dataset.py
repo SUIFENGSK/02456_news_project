@@ -6,6 +6,7 @@ from from_ebrec import _constants as cs
 
 import pandas as pd
 
+
 class NRMSDataset(Dataset):
     def __init__(self, 
                  behaviours : pd.DataFrame,
@@ -52,25 +53,27 @@ class NRMSDataset(Dataset):
         # Sort the behaviours by the user id and the impression timestamp
         behaviours = behaviours.sort_values([cs.DEFAULT_USER_COL, cs.DEFAULT_IMPRESSION_TIMESTAMP_COL])
 
-
         # ensure title_clicked and subtitle clicked only contain one element
         behaviours[cs.DEFAULT_TITLE_COL + "_clicked"] = behaviours[cs.DEFAULT_TITLE_COL + "_clicked"].apply(lambda x: x[0] if len(x) > 0 else "")
         behaviours[cs.DEFAULT_SUBTITLE_COL + "_clicked"] = behaviours[cs.DEFAULT_SUBTITLE_COL + "_clicked"].apply(lambda x: x[0] if len(x) > 0 else "")
       
-        # print length of each column
-        print(behaviours.columns)
-        print(behaviours.apply(lambda x: len(x[cs.DEFAULT_INVIEW_ARTICLES_COL]), axis = 1))
+        pd.set_option('display.max_columns', 10)
+        # print only the first row title_inview column
+        #print(behaviours[cs.DEFAULT_TITLE_COL + "_inview"].iloc[0])
+        # print only the first row title_clicked column
+        #print(behaviours[cs.DEFAULT_TITLE_COL + "_clicked"].iloc[0])
+
+        #print(behaviours.head())
+        print("Handling history")
+        history = history[["user_id", cs.DEFAULT_HISTORY_ARTICLE_ID_COL, cs.DEFAULT_HISTORY_IMPRESSION_TIMESTAMP_COL]]
+        
+        # get the type of the history article id column
+        print(history[cs.DEFAULT_HISTORY_ARTICLE_ID_COL].dtype)
+
+        print(history.head())
         
 
 
-        print("Handling history")
-        history = history[["user_id", cs.DEFAULT_HISTORY_ARTICLE_ID_COL, cs.DEFAULT_HISTORY_IMPRESSION_TIMESTAMP_COL]]
-
-
-        #print(history)
-
-        # Labels should be a list of numpy arrays, where each array contains the a numpy array of shape (candidate_size)
-        # containing the click probabilities for each candidate news article
 
         self.data = []
         self.labels = []
