@@ -15,30 +15,30 @@ class AttLayer2(nn.Module):
     def forward(self, inputs):
         """
         Args:
-            inputs: Tensor of shape (batch_size, seq_len, input_dim)
+            inputs: Tensor of shape (seq_len, input_dim)
                     where seq_len is the number of time steps in the sequence.
         Returns:
-            Tensor of shape (batch_size, input_dim) representing the context vector.
+            Tensor of shape (input_dim) representing the context vector.
         """
         # Project the inputs into the attention space with a non-linearity (tanh)
-        # Shape: (batch_size, seq_len, attention_dim)
+        # Shape: (seq_len, attention_dim)
         attention = torch.tanh(self.attention_projection(inputs)) # b = tanh(W * h + v)
 
         # Compute attention scores by projecting the transformed inputs onto the query vector
-        # Shape: (batch_size, seq_len, 1)
+        # Shape: (seq_len, 1)
         attention_scores = self.query_vector(attention) # a = q^T * tanh(b)
 
         # Squeeze the last singleton dimension to get scores for each time step
-        # Shape: (batch_size, seq_len)
+        # Shape: (seq_len)
         attention_scores = attention_scores.squeeze(-1) 
 
         # Normalize the scores using softmax to obtain attention weights
-        # Shape: (batch_size, seq_len, 1)
-        attention_weights = F.softmax(attention_scores, dim=1).unsqueeze(-1) # α = softmax(a)
+        # Shape: (seq_len, 1)
+        attention_weights = F.softmax(attention_scores, dim=0).unsqueeze(-1) # α = softmax(a)
 
         # Compute the context vector as the weighted sum of the inputs
-        # Shape: (batch_size, input_dim)
-        context_vector = (inputs * attention_weights).sum(dim=1) # r = sum(α * h)
+        # Shape: (input_dim)
+        context_vector = (inputs * attention_weights).sum(dim=0) # r = sum(α * h)
 
         return context_vector
 
@@ -61,26 +61,23 @@ class SelfAttention(nn.Module):
     def forward(self, query, key, value):
         """
         Args:
-            query, key, value: Tensors of shape (batch_size, seq_len, input_dim)
+            query, key, value: Tensors of shape (seq_len, input_dim)
         Returns:
-            Tensor of shape (batch_size, seq_len, head_nums * head_dim)
+            Tensor of shape (seq_len, head_nums * head_dim)
         """
-        # Extract the batch size and sequence length from the input shape
-        batch_size, seq_len, _ = query.size()
+        # Extract the sequence length from the input shape
+        seq_len, _ = query.size()
 
         # Project the inputs into the attention subspace
-        Q_proj = self.query_proj(query)  # (batch_size, seq_len, head_nums * head_dim)
-        K_proj = self.key_proj(key)      # (batch_size, seq_len, head_nums * head_dim)
-        V_proj = self.value_proj(value)  # (batch_size, seq_len, head_nums * head_dim)
+        Q_proj = self.query_proj(query)  # (seq_len, head_nums * head_dim)
+        K_proj = self.key_proj(key)      # (seq_len, head_nums * head_dim)
+        V_proj = self.value_proj(value)  # (seq_len, head_nums * head_dim)
 
         # Reshape for multi-head attention:
-        # From (batch_size, seq_len, head_nums * head_dim) to (batch_size, head_nums, seq_len, head_dim)
-        Q_proj = Q_proj.view(batch_size, seq_len,
-                             self.head_nums, self.head_dim).permute(0, 2, 1, 3)
-        K_proj = K_proj.view(batch_size, seq_len,
-                             self.head_nums, self.head_dim).permute(0, 2, 1, 3)
-        V_proj = V_proj.view(batch_size, seq_len,
-                             self.head_nums, self.head_dim).permute(0, 2, 1, 3)
+        # From (seq_len, head_nums * head_dim) to (head_nums, seq_len, head_dim)
+        Q_proj = Q_proj.view(seq_len, self.head_nums, self.head_dim).permute(1, 0, 2)
+        K_proj = K_proj.view(seq_len, self.head_nums, self.head_dim).permute(1, 0, 2)
+        V_proj = V_proj.view(seq_len, self.head_nums, self.head_dim).permute(1, 0, 2)
 
         # Compute scaled dot-product attention scores:
         # scores = Q * K^T / sqrt(d_k)
@@ -88,18 +85,18 @@ class SelfAttention(nn.Module):
             Q_proj, K_proj.transpose(-2, -1)) / (self.head_dim ** 0.5)
 
         # Apply the softmax function to normalize scores along the last dimension
-        # Shape: (batch_size, head_nums, seq_len, seq_len)
+        # Shape: (head_nums, seq_len, seq_len)
         attention_weights = F.softmax(scores, dim=-1)
 
         # Compute the output of the attention layer:
         # output = softmax(scores) * V
-        # (batch_size, head_nums, seq_len, head_dim)
+        # (head_nums, seq_len, head_dim)
         output = torch.matmul(attention_weights, V_proj)
 
         # Reshape the output back to original dimensions:
-        # From (batch_size, head_nums, seq_len, head_dim) to (batch_size, seq_len, head_nums * head_dim)
-        output = output.permute(0, 2, 1, 3).contiguous().view(
-            batch_size, seq_len, self.output_dim)
+        # From (head_nums, seq_len, head_dim) to (seq_len, head_nums * head_dim)
+        output = output.permute(1, 0, 2).contiguous().view(
+            seq_len, self.output_dim)
 
         return output
 
@@ -120,5 +117,5 @@ class PositionEncoder(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:, :x.size(1)]
+        x = x + self.pe[:, :x.size(0)]
         return self.dropout(x)

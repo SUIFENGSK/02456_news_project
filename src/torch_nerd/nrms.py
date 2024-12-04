@@ -46,19 +46,19 @@ class NewsEncoder(nn.Module):
         self.att_layer = AdditiveAttention(
             hparams.head_num * hparams.head_dim, hparams.attention_hidden_dim)
 
-    def forward(self, sequences_input_title, timestamps=None):   # timestamps shape: (batch_size, 
-        sequences_input_title = sequences_input_title.long()        # Shape: (batch_size, title_size)
-        embedded_sequences = self.embedding(sequences_input_title)  # Shape: (batch_size, title_size, embedding_dim)
+    def forward(self, sequences_input_title, timestamps=None):
+        sequences_input_title = sequences_input_title.long()        # Shape: (title_size)
+        embedded_sequences = self.embedding(sequences_input_title)  # Shape: (title_size, embedding_dim)
         if self.use_positional_encoding:
-            embedded_sequences = self.positional_encoder(embedded_sequences) # Shape: (batch_size, title_size, embedding_dim)
+            embedded_sequences = self.positional_encoder(embedded_sequences) # Shape: (title_size, embedding_dim)
         if self.use_time_embedding:
-            timestamps = timestamps.long() # Shape: (batch_size, title_size)
-            time_embedded = self.time_embedding(timestamps) # batch_size, title_size, time_embedding_dim
-            embedded_sequences = torch.cat([embedded_sequences, time_embedded], dim=-1) # Shape: (batch_size, title_size, embedding_dim + time_embedding_dim)
-        y = self.dropout(embedded_sequences) # Shape: (batch_size, title_size, embedding_dim)
-        y = self.self_attention(y, y, y)  # Shape: (batch_size, title_size, head_num * head_dim)
-        y = self.dense_layers(y)  # Shape: (batch_size, title_size, head_num * head_dim)
-        y = self.att_layer(y) # Shape: (batch_size, head_num * head_dim)
+            timestamps = timestamps.long() # Shape: (title_size)
+            time_embedded = self.time_embedding(timestamps) # Shape: (title_size, time_embedding_dim)
+            embedded_sequences = torch.cat([embedded_sequences, time_embedded], dim=-1) # Shape: (title_size, embedding_dim + time_embedding_dim)
+        y = self.dropout(embedded_sequences) # Shape: (title_size, embedding_dim)
+        y = self.self_attention(y, y, y)  # Shape: (title_size, head_num * head_dim)
+        y = self.dense_layers(y)  # Shape: (title_size, head_num * head_dim)
+        y = self.att_layer(y) # Shape: (head_num * head_dim)
         return y
 
 
@@ -74,18 +74,16 @@ class UserEncoder(nn.Module):
         self.head_num = hparams.head_num   
         self.head_dim = hparams.head_dim
 
-    def forward(self, history, timestamps=None): # Shape: (batch_size, history_size, title_size)
-        perm_history = history.permute(1, 0, 2) # Shape: (history_size, batch_size, title_size)
-        history_representations = torch.zeros(perm_history.shape[0], perm_history.shape[1], self.head_num * self.head_dim).to(history.device) 
-        for i in range(perm_history.shape[0]):  # for each news in history encode the news
+    def forward(self, history, timestamps=None): # Shape: (history_size, title_size)
+        history_representations = torch.zeros(history.shape[0], self.head_num * self.head_dim).to(history.device) 
+        for i in range(history.shape[0]):  # for each news in history encode the news
             if timestamps is not None: 
-                history_representations[i] = self.news_encoder(perm_history[i], timestamps[i])  #Shape (batch_size, head_num * head_dim)
+                history_representations[i] = self.news_encoder(history[i], timestamps[i])  # Shape: (head_num * head_dim)
             else:
-                history_representations[i] = self.news_encoder(perm_history[i]) # Shape (batch_size, head_num * head_dim)
-        history_representations = history_representations.permute(1, 0, 2) # Shape: (batch_size, history_size, head_num * head_dim)
+                history_representations[i] = self.news_encoder(history[i]) # Shape: (head_num * head_dim)
         y = self.self_attention(history_representations,
-                                history_representations, history_representations) # Shape: (batch_size, history_size, head_num * head_dim)
-        y = self.att_layer(y) # Shape: (batch_size, head_num * head_dim)
+                                history_representations, history_representations) # Shape: (history_size, head_num * head_dim)
+        y = self.att_layer(y) # Shape: (head_num * head_dim)
         return y 
 
 
@@ -94,9 +92,7 @@ class ClickPredictor(nn.Module):
         super().__init__()
 
     def forward(self, news_representation, user_representation): 
-
-        prob = torch.einsum('bcd,bd->bc', news_representation, user_representation)  # Shape: (batch_size, candidate_size)
-
+        prob = torch.einsum('cd,d->c', news_representation, user_representation)  # Shape: (candidate_size)
         return prob
 
 
@@ -111,24 +107,19 @@ class NRMSModel(nn.Module):
         self.head_num = hparams.head_num   
         self.head_dim = hparams.head_dim
 
-    # History shape: (batch_size, history_size, title_size)
-    # Candidates shape: (batch_size, candidate_size, title_size)
+    # History shape: (history_size, title_size)
+    # Candidates shape: (candidate_size, title_size)
     def forward(self, candidates, history, candidate_timestamps = None, history_timestamps=None):           
         user_representation = self.user_encoder(history, history_timestamps)  # u in the paper
         
-        # Reshape the candidate news to (candidate_size,  batch_size, title_size)
-        perm_candidates = candidates.permute(1, 0, 2)
-
-        news_representations = torch.zeros(perm_candidates.shape[0], perm_candidates.shape[1], self.head_num * self.head_dim).to(candidates.device) # candidate_size, batch_size, head_num * head_dim
-        for i in range(perm_candidates.shape[0]): # for each candidate news encode the news
+        news_representations = torch.zeros(candidates.shape[0], self.head_num * self.head_dim).to(candidates.device) # candidate_size, head_num * head_dim
+        for i in range(candidates.shape[0]): # for each candidate news encode the news
             if candidate_timestamps is not None:
-                news_representations[i] = self.news_encoder(perm_candidates[i], candidate_timestamps[i])
+                news_representations[i] = self.news_encoder(candidates[i], candidate_timestamps[i])
             else:
-                news_representations[i] = self.news_encoder(perm_candidates[i])
-            
-        reshaped_news_representation = news_representations.permute(1, 0, 2) # Shape: (batch_size, candidate_size, head_num * head_dim)
+                news_representations[i] = self.news_encoder(candidates[i])
                 
-        click_probability = self.click_predictor(reshaped_news_representation, user_representation)
+        click_probability = self.click_predictor(news_representations, user_representation)
         
         p_i = F.softmax(click_probability, dim=-1)
 

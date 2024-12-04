@@ -6,7 +6,7 @@ import torch.optim as optim
 import torch.nn as nn
 from hyperparameters import hparams_nrms
 from nrms import NRMSModel
-from dataloader import NRMSDataLoader
+from src.torch_nerd.dataset import NRMSDataLoader
 from from_ebrec._articles import create_article_id_to_value_mapping
 from from_ebrec._articles import convert_text2encoding_with_transformers
 from from_ebrec._polars import concat_str_columns
