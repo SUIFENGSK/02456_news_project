@@ -35,3 +35,4 @@ class hparams_nrms:
     dropout: float = 0.2
     learning_rate: float = 1e-4
     weight_decay: float = 1e-5
+    momentum: float = 0.9

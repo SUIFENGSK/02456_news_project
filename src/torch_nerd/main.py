@@ -17,8 +17,8 @@ else:
     DATAPATH = Path("~/ebnerd_data").expanduser()
 
 # DATASET = "ebnerd_demo"
-DATASET = "ebnerd_small"
-# DATASET = "ebnerd_large"
+# DATASET = "ebnerd_small"
+DATASET = "ebnerd_large"
 # %%
 import torch
 
@@ -38,7 +38,7 @@ from utils.data_handler import NewsDataset
 import from_ebrec._constants as cs
 
 SEED = 42
-HISTORY_SIZE = 50
+HISTORY_SIZE = 100
 CANDITATE_SIZE = 5
 
 COLS = [
@@ -114,11 +114,12 @@ hparams.time_dim = 1
 hparams.time_embedding_dim = 32
 
 # MODEL OPTIMIZER:
-hparams.optimizer = "adam"
+hparams.optimizer = "adamw"
 hparams.loss = "mse_loss"
 hparams.dropout = 0.2
-hparams.learning_rate = 1e-4
+hparams.learning_rate = 1e-3
 hparams.weight_decay = 1e-5
+hparams.momentum = 0.9
 
 model = NRMSModel(hparams=hparams, word2vec_embedding=word2vec_embedding)
 
@@ -146,6 +147,10 @@ else:
 
 if hparams.optimizer == "adam":
     optimizer = optim.Adam(model.parameters(), lr=hparams_nrms.learning_rate, weight_decay=hparams_nrms.weight_decay)
+elif hparams.optimizer == "adamw":
+    optimizer = optim.AdamW(model.parameters(), lr=hparams_nrms.learning_rate, weight_decay=hparams_nrms.weight_decay)
+elif hparams.optimizer == "sgd":
+    optimizer = optim.SGD(model.parameters(), lr=hparams_nrms.learning_rate, momentum=hparams_nrms.momentum)
 else:
     raise ValueError(f"Optimizer {hparams.optimizer} not supported")
 # %%
@@ -165,10 +170,21 @@ val_dataloader = NRMSDataLoader(
     history_column=cs.DEFAULT_HISTORY_ARTICLE_ID_COL,
     batch_size=BATCH_SIZE,
 )
+
+# dynamic learning rate
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+scheduler = ReduceLROnPlateau(
+    optimizer,
+    mode='min',  # Minimizing validation loss
+    factor=0.5,  # Reduce the learning rate by half
+    patience=2,  # Wait 2 epochs without improvement
+    verbose=True  # Log the learning rate changes
+)
 # %%
 # Train the model 
 
-EPOCHS = 10
+EPOCHS = 50
 
 # Move model to GPU if available
 model.to(device)
@@ -228,6 +244,12 @@ for epoch in range(EPOCHS):
 
     print(f"Epoch {epoch + 1}/{EPOCHS}: Train Loss = {train_loss:.4f}, Val Loss = {val_loss:.4f}")
 
+    # Update learning rate scheduler
+    scheduler.step(val_loss)
+    # Log current learning rate
+    for param_group in optimizer.param_groups:
+        print(f"Current learning rate: {param_group['lr']}")
+
 # %%
 # Plot the loss history
 import matplotlib.pyplot as plt
@@ -280,8 +302,8 @@ with torch.no_grad():
     test_loss /= len(test_dataloader)
     print("Test loss:", test_loss)
 
-print(pred_test)
-print(labels_test)
+#print(pred_test)
+#print(labels_test)
 
 from from_ebrec.evaluation import MetricEvaluator
 from from_ebrec.evaluation import AucScore, MrrScore, NdcgScore
@@ -294,43 +316,45 @@ metrics = MetricEvaluator(
 metrics.evaluate()
 print(metrics)
 
-# # %%
-# number_to_print = 20
-# print("Top %d predictions vs labels:" % number_to_print)
-# labels = dataset.df_test["labels"].to_list()
-# for i in range(number_to_print):
-#     print(f"Article {i}")
-#     for j in range(len(pred_test[i])):
-#         print(f"{pred_test[i][j]:.3f} vs {labels[i][j]:.3f}")
-#     print("")
-#
-# # %%
-# from sklearn.metrics import confusion_matrix, roc_curve, auc
-# import matplotlib.pyplot as plt
-#
-# # Flatten the data for analysis
-# predicted_probabilities = [prob for article in pred_test for prob in article]
-# true_values = [val for article in labels[:len(pred_test)] for val in article]
-#
-# # Set a threshold (commonly 0.5) to classify probabilities as 0 or 1
-# threshold = 0.5
-# predicted_classes = [1 if p >= threshold else 0 for p in predicted_probabilities]
-#
-# # Calculate confusion matrix
-# conf_matrix = confusion_matrix(true_values, predicted_classes)
-# print("Confusion Matrix:")
-# print(conf_matrix)
-#
-# # Calculate AUC and ROC curve
-# fpr, tpr, thresholds = roc_curve(true_values, predicted_classes)
-# roc_auc = auc(fpr, tpr)
-#
-# # Plot ROC curve with AUC value explicitly highlighted
-# plt.figure()
-# plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
-# plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label="Random Guess")
-# plt.xlabel('False Positive Rate')
-# plt.ylabel('True Positive Rate')
-# plt.title('Receiver Operating Characteristic (ROC) Curve')
-# plt.legend(loc='lower right')
-# plt.show()
+# roc graph data
+labels = dataset.df_test["labels"].to_list()
+
+predicted_probabilities = [prob for article in pred_test for prob in article]
+true_values = [val for article in labels[:len(pred_test)] for val in article]
+
+# Set a threshold (commonly 0.5) to classify probabilities as 0 or 1
+threshold = 0.5
+predicted_classes = [1 if p >= threshold else 0 for p in predicted_probabilities]
+
+# Calculate confusion matrix
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+conf_matrix = confusion_matrix(true_values, predicted_classes)
+print("Confusion Matrix:")
+print(conf_matrix)
+
+# Calculate AUC and ROC curve
+fpr, tpr, thresholds = roc_curve(true_values, predicted_classes)
+roc_auc = auc(fpr, tpr)
+print("fpr",fpr)
+print("tpr",tpr)
+
+
+# Open a file in write mode
+with open("metrics_output.txt", "w") as file:
+    file.write(str(metrics) + "\n\n")  # Save metrics
+
+    file.write("Confusion Matrix:\n")
+    file.write(str(conf_matrix) + "\n\n")  # Save confusion matrix
+
+    # Format ROC AUC with 3 decimals
+    file.write(f"ROC AUC: {roc_auc:.3f}\n\n")
+
+    # Save FPR, TPR, and thresholds
+    file.write("FPR:\n")
+    file.write(", ".join(f"{val:.3f}" for val in fpr) + "\n\n")
+
+    file.write("TPR:\n")
+    file.write(", ".join(f"{val:.3f}" for val in tpr) + "\n\n")
+
+    file.write("Thresholds:\n")
+    file.write(", ".join(f"{val:.3f}" for val in thresholds) + "\n")

@@ -25,21 +25,21 @@ class NewsEncoder(nn.Module):
         else:
             self.use_time_embedding = False
             self.self_attention = SelfAttention(hparams.embedding_dim, hparams.head_num, hparams.head_dim)
-        
+
         self.dense_layers = nn.Sequential(
-            nn.Linear(hparams.head_num * hparams.head_dim,
-                      hparams.linear_hidden_dim),
-            nn.ReLU(),
+            nn.Linear(hparams.head_num * hparams.head_dim, hparams.linear_hidden_dim),
             nn.LayerNorm(hparams.linear_hidden_dim),
+            nn.GELU(),
             nn.Dropout(hparams.dropout),
+
             nn.Linear(hparams.linear_hidden_dim, hparams.linear_hidden_dim),
-            nn.ReLU(),
             nn.LayerNorm(hparams.linear_hidden_dim),
+            nn.GELU(),
             nn.Dropout(hparams.dropout),
-            nn.Linear(hparams.linear_hidden_dim,
-                      hparams.head_num * hparams.head_dim),
-            nn.ReLU(),
+
+            nn.Linear(hparams.linear_hidden_dim, hparams.head_num * hparams.head_dim),
             nn.LayerNorm(hparams.head_num * hparams.head_dim),
+            nn.GELU(),
             nn.Dropout(hparams.dropout),
         )
 
