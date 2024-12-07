@@ -50,7 +50,7 @@ COLS = [
     cs.DEFAULT_INVIEW_ARTICLES_COL,
 ]
 
-FRACTION = 1
+FRACTION = 0.01
 # FRACTION = 0.01
 # FRACTION = 0.1
 # FRACTION = 1
@@ -116,9 +116,9 @@ hparams.time_embedding_dim = 32
 # MODEL OPTIMIZER:
 hparams.optimizer = "adamw"
 hparams.loss = "mse_loss"
-hparams.dropout = 0.2
+hparams.dropout = 0.3
 hparams.learning_rate = 1e-3
-hparams.weight_decay = 1e-5
+hparams.weight_decay = 1e-4
 hparams.momentum = 0.9
 
 model = NRMSModel(hparams=hparams, word2vec_embedding=word2vec_embedding)
@@ -177,7 +177,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 scheduler = ReduceLROnPlateau(
     optimizer,
     mode='min',  # Minimizing validation loss
-    factor=0.5,  # Reduce the learning rate by half
+    factor=0.3,  # Reduce the learning rate by half
     patience=2,  # Wait 2 epochs without improvement
     verbose=True  # Log the learning rate changes
 )
@@ -357,4 +357,12 @@ with open("metrics_output.txt", "w") as file:
     file.write(", ".join(f"{val:.3f}" for val in tpr) + "\n\n")
 
     file.write("Thresholds:\n")
-    file.write(", ".join(f"{val:.3f}" for val in thresholds) + "\n")
+    file.write(", ".join(f"{val:.3f}" for val in thresholds) + "\n\n")
+
+    # Write Train Loss History
+    file.write("Train Loss History:\n")
+    file.write(", ".join(f"{loss:.4f}" for loss in train_loss_history) + "\n\n")
+
+    # Write Validation Loss History
+    file.write("Validation Loss History:\n")
+    file.write(", ".join(f"{loss:.4f}" for loss in val_loss_history) + "\n\n")
